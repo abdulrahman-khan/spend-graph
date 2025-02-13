@@ -18,6 +18,33 @@ def should_skip_line(line):
     line_lower = line.lower()
     return any(re.search(pattern, line_lower) for pattern in skip_patterns)
 
+def extract_statement_date(text1):
+    """Extract month and year from statement text"""
+    # Pattern to match date ranges like "March 18 to April 16, 2022"
+    starting_date_pattern = r'\d{1,2},\s*\d{4}'
+    # starting_date_pattern = r'(?:January|February|March|April|May|June|July|August|September|October|November|December)\d{1,2},\s*\d{4}to'
+    ending_date_pattern = r"to(?:January|February|March|April|May|June|July|August|September|October|November|December)\d{1,2},\s*\d{4}"
+    starting_year_pattern = r"\d{4}"
+
+    
+
+    # Find year
+    # Search for starting date using pattern
+    starting_date_match = re.search(starting_date_pattern, text1)
+    if starting_date_match:
+        starting_date = starting_date_match.group(0)
+        # print(f"Starting date found: {starting_date}")
+        # Extract year from starting date using year pattern
+        year_match = re.search(starting_year_pattern, starting_date)
+        if year_match:
+            year = year_match.group(0)
+            print(f"Year found: {year}")
+    else:
+        print("No starting date found")
+
+    
+    return year
+
 def clean_transaction_line(line):
     """Clean and parse a transaction line into structured data"""
     # Skip informational lines
@@ -34,15 +61,17 @@ def clean_transaction_line(line):
         line = closing_match.group(1)
     
     # Pattern to match transaction lines
-    pattern = r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{1,2})\s+(.*?)\s+(\d{1,3}(?:,\d{3})*\.\d{2})?\s*(\d{1,3}(?:,\d{3})*\.\d{2})?\s+(\d{1,3}(?:,\d{3})*\.\d{2})$"
-    
+    pattern = r"(?P<month>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?P<day>\d+)\s+(?P<type>Pointofsalepurchase)\s+(?P<amount>\d+\.\d{2})\s+(?P<total>\d{1,3}(?:,\d{3})*\.\d{2})"
+
     match = re.match(pattern, line)
     if match:
-        date, description, amount1, amount2, balance = match.groups()
+        month, date, description, amount1, balance = match.groups()
         
         # Initialize withdrawal and deposit
         withdrawal = None
         deposit = None
+        amount2 = None
+        
         
         # Determine if amount is withdrawal or deposit based on description
         description = description.strip()
@@ -59,7 +88,8 @@ def clean_transaction_line(line):
             deposit = amount
             
         return {
-            'date': date,
+            'month': month,
+            'date': date,  # Convert to integer
             'description': description,
             'withdrawal': withdrawal,
             'deposit': deposit,
@@ -71,12 +101,21 @@ def process_pdf_to_csv(pdf_path, output_csv):
     """Process PDF file and create organized CSV"""
     transactions = []
     current_transaction = None
+    statement_month = None
+    statement_year = None
     
     with pdfplumber.open(pdf_path) as pdf:
+
+        # Extract month and year from first page
+        first_page = pdf.pages[1].extract_text()
+        statement_year = extract_statement_date(first_page)
+
         for page in pdf.pages:
             text = page.extract_text()
             lines = text.split('\n')
+
             
+
             for line in lines:
                 line = line.strip()
                 
@@ -103,14 +142,19 @@ def process_pdf_to_csv(pdf_path, output_csv):
     df = pd.DataFrame(transactions)
     
     if not df.empty:
+        # Add month and year columns
+        # df['month'] = statement_month
+        df['year'] = statement_year
+        
         # Reorder columns
-        columns = ['date', 'description', 'withdrawal', 'deposit', 'balance']
+        columns = ['date', 'month', 'year', 'description', 'withdrawal', 'deposit', 'balance']
         df = df[columns]
         
         # Save to CSV
         df.to_csv(output_csv, index=False)
         print(f"Successfully created CSV file: {output_csv}")
         print(f"Total transactions processed: {len(df)}")
+        print(f"Statement period: {statement_month} {statement_year}")
     else:
         print(f"No transactions found in: {pdf_path}")
 
