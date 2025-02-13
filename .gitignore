@@ -1,0 +1,10 @@
+e-statements/
+csv-statements/
+
+
+# Common Python files to ignore
+__pycache__/
+*.py[cod]
+*$py.class
+.env 
+*.csv
