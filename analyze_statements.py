@@ -33,13 +33,13 @@ def load_and_clean_data():
 def create_graphs(df):
     """Create various graphs from the data"""
     # Set the style
-    plt.style.use('fivethirtyeight')  # Using a built-in matplotlib style
+    plt.style.use('fivethirtyeight')
     
     # Create a figure with multiple subplots
-    fig = plt.figure(figsize=(15, 20))
+    fig = plt.figure(figsize=(15, 20))  # Adjusted height
     
     # 1. Balance over time
-    plt.subplot(4, 1, 1)
+    plt.subplot(4, 1, 1)  # Changed to 4,1 since we removed one plot
     plt.plot(df['date'], df['balance'], label='Balance', color='blue')
     plt.title('Account Balance Over Time')
     plt.xlabel('Date')
@@ -71,18 +71,44 @@ def create_graphs(df):
     plt.xticks(rotation=45)
     plt.grid(True)
     
-    # 4. Transaction Types Distribution
+    # 4. Top 5 Expenses Table
     plt.subplot(4, 1, 4)
-    transaction_types = df['description'].str.extract(r'(Payrolldep|Pointofsalepurchase|GST|Opening Balance)')[0]
-    transaction_counts = transaction_types.value_counts()
-    plt.pie(transaction_counts, labels=transaction_counts.index, autopct='%1.1f%%')
-    plt.title('Transaction Type Distribution')
+    current_month = df['date'].max().strftime('%B %Y')
+    current_month_data = df[
+        (df['date'].dt.month == df['date'].max().month) & 
+        (df['date'].dt.year == df['date'].max().year) &
+        (df['withdrawal'] > 0)
+    ]
+    
+    top_expenses = current_month_data.nlargest(5, 'withdrawal')[['date', 'description', 'withdrawal']]
+    
+    # Create table data
+    table_data = []
+    for _, row in top_expenses.iterrows():
+        table_data.append([
+            row['date'].strftime('%B %d'),
+            row['description'][:30] + '...' if len(row['description']) > 30 else row['description'],
+            f"${row['withdrawal']:,.2f}"
+        ])
+    
+    # Create table
+    plt.table(
+        cellText=table_data,
+        colLabels=['Date', 'Description', 'Amount'],
+        cellLoc='center',
+        loc='center',
+        colWidths=[0.2, 0.6, 0.2],
+        bbox=[0, 0, 1, 0.8]  # [left, bottom, width, height]
+    )
+    
+    plt.title(f'Top 5 Highest Expenses - {current_month}')
+    plt.axis('off')  # Hide axes for table
     
     # Adjust layout and display
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('financial_analysis.png')
+    plt.savefig('financial_analysis.png', dpi=300, bbox_inches='tight')
     print("Graphs have been saved as 'financial_analysis.png'")
     
     # Generate summary statistics
