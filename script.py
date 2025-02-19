@@ -18,32 +18,44 @@ def should_skip_line(line):
     line_lower = line.lower()
     return any(re.search(pattern, line_lower) for pattern in skip_patterns)
 
-def extract_statement_date(text1):
+def extract_statement_date(text):
     """Extract month and year from statement text"""
-    # Pattern to match date ranges like "March 18 to April 16, 2022"
-    starting_date_pattern = r'\d{1,2},\s*\d{4}'
-    # starting_date_pattern = r'(?:January|February|March|April|May|June|July|August|September|October|November|December)\d{1,2},\s*\d{4}to'
-    ending_date_pattern = r"to(?:January|February|March|April|May|June|July|August|September|October|November|December)\d{1,2},\s*\d{4}"
-    starting_year_pattern = r"\d{4}"
-
+    # Patterns to match different date formats in statement
+    date_patterns = [
+        # Pattern for "March 18 to April 16, 2022" format
+        r'(?P<start_month>January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+to\s+(?P<end_month>January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+(?P<year>\d{4})',
+        
+        # Pattern for just end date "April 16, 2022"
+        r'(?P<end_month>January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+(?P<year>\d{4})',
+        
+        # Fallback pattern for just year
+        r'(?P<year>\d{4})'
+    ]
     
+    month_to_number = {
+        'January': 1, 'February': 2, 'March': 3, 'April': 4,
+        'May': 5, 'June': 6, 'July': 7, 'August': 8,
+        'September': 9, 'October': 10, 'November': 11, 'December': 12
+    }
 
-    # Find year
-    # Search for starting date using pattern
-    starting_date_match = re.search(starting_date_pattern, text1)
-    if starting_date_match:
-        starting_date = starting_date_match.group(0)
-        # print(f"Starting date found: {starting_date}")
-        # Extract year from starting date using year pattern
-        year_match = re.search(starting_year_pattern, starting_date)
-        if year_match:
-            year = year_match.group(0)
-            print(f"Year found: {year}")
-    else:
-        print("No starting date found")
-
+    # Try each pattern
+    for pattern in date_patterns:
+        match = re.search(pattern, text)
+        if match:
+            data = match.groupdict()
+            year = data.get('year')
+            
+            # Try to get end_month first, then start_month if end_month doesn't exist
+            month_name = data.get('end_month') or data.get('start_month')
+            
+            if month_name:
+                month = month_to_number.get(month_name)
+                return month, int(year)
+            elif year:
+                return None, int(year)
     
-    return year
+    print("No date information found in text")
+    return None, None
 
 def clean_transaction_line(line):
     """Clean and parse a transaction line into structured data"""
@@ -108,7 +120,7 @@ def process_pdf_to_csv(pdf_path, output_csv):
 
         # Extract month and year from first page
         first_page = pdf.pages[1].extract_text()
-        statement_year = extract_statement_date(first_page)
+        statement_year = extract_statement_date(first_page)[1]
 
         for page in pdf.pages:
             text = page.extract_text()
