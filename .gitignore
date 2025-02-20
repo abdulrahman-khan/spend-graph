@@ -1,6 +1,7 @@
 e-statements/
 csv-statements/
 raw-statement/
+cleaned-raw-statement/
 
 
 # Common Python files to ignore
