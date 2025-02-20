@@ -1,16 +1,27 @@
 import pandas as pd
 from pathlib import Path
+import shutil
+
+def clean_data_directory():
+    """Remove and recreate DATA directory"""
+    data_dir = Path('DATA')
+    if data_dir.exists():
+        shutil.rmtree(data_dir)
+    data_dir.mkdir()
+    print("Cleaned DATA directory")
 
 def compile_csv_files():
     """Combine all CSV files from csv-statements into DATA/EXPORT.csv"""
+    # Clean DATA directory first
+    clean_data_directory()
+    
     # Setup paths
     csv_dir = Path('csv-statements')
     data_dir = Path('DATA')
-    data_dir.mkdir(exist_ok=True)  # Create DATA directory if it doesn't exist
     output_file = data_dir / 'EXPORT.csv'
     
-    # Get list of all CSV files from csv-statements
-    csv_files = [f for f in csv_dir.glob('*.csv')]
+    # Get list of all CSV files recursively from csv-statements
+    csv_files = list(csv_dir.rglob('*.csv'))
     
     if not csv_files:
         print("No CSV files found in csv-statements directory")
@@ -18,12 +29,12 @@ def compile_csv_files():
         
     print("Found CSV files:")
     for file in csv_files:
-        print(f"  - {file.name}")
+        print(f"  - {file}")
     
     # Read and combine all CSV files
     dfs = []
     for file in csv_files:
-        print(f"\nReading: {file.name}")
+        print(f"\nReading: {file}")
         df = pd.read_csv(file)
         dfs.append(df)
     

@@ -67,19 +67,19 @@ def create_graphs(df):
     plt.xticks(rotation=45)
     plt.grid(True)
     
-    # 4. Top 5 Expenses Table
+    # 4. Top 10 Expenses Table
     plt.subplot(4, 1, 4)
     
-    # Get top expenses from entire dataset
+    # Get top 10 expenses from entire dataset
     all_expenses = df[df['withdrawal'] > 0]
-    top_expenses = all_expenses.nlargest(5, 'withdrawal')[['date', 'description', 'withdrawal']]
+    top_expenses = all_expenses.nlargest(10, 'withdrawal')[['date', 'description', 'withdrawal']]
     
     # Create table data
     table_data = []
     for _, row in top_expenses.iterrows():
         table_data.append([
-            row['date'].strftime('%B %d, %Y'),  # Added year to date
-            row['description'],  # Remove truncation
+            row['date'].strftime('%B %d, %Y'),
+            row['description'],
             f"${row['withdrawal']:,.2f}"
         ])
     
@@ -89,11 +89,11 @@ def create_graphs(df):
         colLabels=['Date', 'Description', 'Amount'],
         cellLoc='center',
         loc='center',
-        colWidths=[0.2, 1.0, 0.2],  # Made description column wider
-        bbox=[0, 0, 1.4, 0.8]  # Increased overall width
+        colWidths=[0.2, 1.0, 0.2],
+        bbox=[0, 0, 1.4, 0.8]
     )
     
-    plt.title('Top 5 Highest Expenses - All Time')
+    plt.title('Top 10 Highest Expenses - All Time')
     plt.axis('off')
     
     # Adjust layout and display

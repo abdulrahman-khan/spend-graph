@@ -2,9 +2,40 @@ import pdfplumber
 import pandas as pd
 import re
 from pathlib import Path
+import shutil
+
+def clean_working_directories():
+    """Remove contents of all working directories and EXPORT.csv"""
+    # Remove EXPORT.csv if it exists
+    export_file = Path('DATA/EXPORT.csv')
+    if export_file.exists():
+        export_file.unlink()
+        print("Removed existing EXPORT.csv")
+    
+    # Clean directories
+    working_dirs = [
+        Path('raw-statement'),
+        Path('csv-statements'),
+        Path('cleaned-raw-statement'),
+        Path('DATA')
+    ]
+    
+    for directory in working_dirs:
+        if directory.exists():
+            shutil.rmtree(directory)
+            directory.mkdir()
+            print(f"Cleaned {directory} directory")
+    
+    # Create new empty EXPORT.csv
+    export_file.parent.mkdir(exist_ok=True)
+    export_file.touch()
+    print("Created new EXPORT.csv")
 
 def process_all_files():
     """Main function to process files in two steps"""
+    # Clean all working directories first
+    clean_working_directories()
+    
     statements_dir = Path('e-statements')
     raw_dir = Path('raw-statement')
     cleaned_dir = Path('cleaned-raw-statement')
@@ -16,22 +47,40 @@ def process_all_files():
     cleaned_dir.mkdir(exist_ok=True)
     output_dir.mkdir(exist_ok=True)
     
-    # Step 1: Process PDFs to raw text files
-    for pdf_file in statements_dir.glob('*.pdf'):
-        raw_text_path = raw_dir / f"{pdf_file.stem}.txt"
-        print(f"\nExtracting text from: {pdf_file.name}")
+    # Step 1: Process PDFs to raw text files - now with recursive search
+    for pdf_file in statements_dir.rglob('*.pdf'):
+        # Maintain folder structure in raw_dir
+        relative_path = pdf_file.relative_to(statements_dir)
+        raw_text_path = raw_dir / relative_path.with_suffix('.txt')
+        
+        # Create parent directories if they don't exist
+        raw_text_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        print(f"\nExtracting text from: {pdf_file}")
         pdf_to_raw_text(pdf_file, raw_text_path)
     
-    # Step 2: Clean raw text files
-    for text_file in raw_dir.glob('*.txt'):
-        cleaned_text_path = cleaned_dir / text_file.name
-        print(f"\nCleaning text file: {text_file.name}")
+    # Step 2: Clean raw text files - now with recursive search
+    for text_file in raw_dir.rglob('*.txt'):
+        # Maintain folder structure in cleaned_dir
+        relative_path = text_file.relative_to(raw_dir)
+        cleaned_text_path = cleaned_dir / relative_path
+        
+        # Create parent directories if they don't exist
+        cleaned_text_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        print(f"\nCleaning text file: {text_file}")
         clean_raw_text(text_file, cleaned_text_path)
     
-    # Step 3: Process cleaned text files to CSVs  
-    for text_file in cleaned_dir.glob('*.txt'):
-        csv_file = output_dir / f"{text_file.stem}.csv"
-        print(f"\nProcessing text to CSV: {text_file.name}")
+    # Step 3: Process cleaned text files to CSVs - now with recursive search
+    for text_file in cleaned_dir.rglob('*.txt'):
+        # Maintain folder structure in output_dir
+        relative_path = text_file.relative_to(cleaned_dir)
+        csv_file = output_dir / relative_path.with_suffix('.csv')
+        
+        # Create parent directories if they don't exist
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        print(f"\nProcessing text to CSV: {text_file}")
         raw_text_to_csv(text_file, csv_file)
 
 def pdf_to_raw_text(pdf_path, output_text):
@@ -64,48 +113,6 @@ def clean_raw_text(input_path, output_path):
     # Find the start marker of transaction data
     start_marker = "Here's what happened in your account this statement period"
     
-<<<<<<< Updated upstream
-    def _convert_to_csv(self):
-        """Step 3: Convert cleaned text to CSV files"""
-        for text_file in self.cleaned_dir.rglob('*.txt'):
-            # Maintain folder structure
-            relative_path = text_file.relative_to(self.cleaned_dir)
-            csv_file = self.output_dir / relative_path.with_suffix('.csv')
-            csv_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            print(f"\nProcessing text to CSV: {text_file}")
-            self._clean_raw_text(text_file, csv_file)
-    
-
-    def _pdf_to_raw_text(self, pdf_path, output_path):
-        """Extract raw text from PDF"""
-        raw_content = []
-        
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                raw_content.append(text)
-                raw_content.append('=== PAGE BREAK ===')
-            
-            # Remove final page break
-            raw_content.pop()
-            
-            # Save content
-            output_path.write_text('\n'.join(raw_content), encoding='utf-8')
-            print(f"Saved raw text to: {output_path}")
-    
-    def _clean_raw_text(self, input_path, output_path):
-        """Clean raw text and extract transaction data"""
-        content = input_path.read_text(encoding='utf-8')
-        
-        # Find start of transaction data
-        start_marker = "Here's what happened in your account this statement period"
-        if start_marker not in content:
-            print(f"Warning: Could not find transaction section in {input_path}")
-            return
-        
-        # Process content
-=======
     # Patterns to identify footer/irrelevant information
     footer_patterns = [
         r'Page\s*\d+\s*of\s*\d+',      # Page numbers
@@ -119,7 +126,6 @@ def clean_raw_text(input_path, output_path):
     
     if start_marker in content:
         # Split content at the start marker and keep everything after it
->>>>>>> Stashed changes
         _, transaction_content = content.split(start_marker, 1)
         
         # Split lines to process footer
@@ -155,12 +161,6 @@ def clean_raw_text(input_path, output_path):
     else:
         print(f"Warning: Could not find start marker in {input_path}")
 
-<<<<<<< Updated upstream
-
-if __name__ == "__main__":
-    processor = StatementProcessor()
-    processor.process_all_files()
-=======
 def raw_text_to_csv(text_path, output_csv):
     """Process raw text file to create organized CSV using balance changes"""
     transactions = []
@@ -187,44 +187,55 @@ def raw_text_to_csv(text_path, output_csv):
         # Check for new transaction (starts with date)
         date_pattern = r'^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{1,2}'
         if re.match(date_pattern, line.replace(' ', '')):
-            # Save previous transaction if exists
-            if current_transaction:
-                transactions.append(current_transaction)
+            try:
+                # Save previous transaction if exists
+                if current_transaction:
+                    transactions.append(current_transaction)
+                
+                # Parse new transaction
+                parts = line.split()
+                date_str = parts[0]
+                balance = float(parts[-1].replace(',', ''))
+                amount = float(parts[-2].replace(',', ''))
+                description = ' '.join(parts[1:-2])
+                
+                # Determine transaction type by balance change
+                if balance > previous_balance:
+                    deposit, withdrawal = amount, None
+                else:
+                    deposit, withdrawal = None, amount
+                
+                # Adjust year for December transactions
+                transaction_year = year
+                if date_str.startswith('Dec'):
+                    transaction_year = year - 1
+                
+                # Create transaction record
+                current_transaction = {
+                    'month': date_str[:3],
+                    'date': int(date_str[3:]),
+                    'description': description,
+                    'withdrawal': withdrawal,
+                    'deposit': deposit,
+                    'balance': balance,
+                    'year': transaction_year
+                }
+                
+                previous_balance = balance
             
-            # Parse new transaction
-            parts = line.split()
-            date_str = parts[0]
-            balance = float(parts[-1].replace(',', ''))
-            amount = float(parts[-2].replace(',', ''))
-            description = ' '.join(parts[1:-2])
-            
-            # Determine transaction type by balance change
-            if balance > previous_balance:
-                deposit, withdrawal = amount, None
-            else:
-                deposit, withdrawal = None, amount
-            
-            # Adjust year for December transactions
-            transaction_year = year
-            if date_str.startswith('Dec'):
-                transaction_year = year - 1
-            
-            # Create transaction record
-            current_transaction = {
-                'month': date_str[:3],
-                'date': int(date_str[3:]),
-                'description': description,
-                'withdrawal': withdrawal,
-                'deposit': deposit,
-                'balance': balance,
-                'year': transaction_year
-            }
-            
-            previous_balance = balance
+            except (IndexError, ValueError, AttributeError) as e:
+                print(f"Error processing line: {line}")
+                print(f"Error details: {str(e)}")
+                continue
         
         # Add additional description lines
         elif current_transaction:
-            current_transaction['description'] += ' ' + line
+            try:
+                current_transaction['description'] += ' ' + line
+            except Exception as e:
+                print(f"Error adding description line: {line}")
+                print(f"Error details: {str(e)}")
+                continue
     
     # Add final transaction
     if current_transaction:
@@ -333,4 +344,3 @@ def clean_transaction_line(line):
 
 if __name__ == "__main__":
     process_all_files()
->>>>>>> Stashed changes
