@@ -62,8 +62,9 @@ class StatementProcessor:
             csv_file.parent.mkdir(parents=True, exist_ok=True)
             
             print(f"\nProcessing text to CSV: {text_file}")
-            self._text_to_csv(text_file, csv_file)
+            self._clean_raw_text(text_file, csv_file)
     
+
     def _pdf_to_raw_text(self, pdf_path, output_path):
         """Extract raw text from PDF"""
         raw_content = []
@@ -151,9 +152,7 @@ class StatementProcessor:
         ]
         return any(re.search(pattern, line, re.IGNORECASE) for pattern in patterns)
 
-def main():
-    processor = StatementProcessor()
-    processor.process_all_files()
 
 if __name__ == "__main__":
-    main()
+    processor = StatementProcessor()
+    processor.process_all_files()
