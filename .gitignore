@@ -2,7 +2,7 @@ e-statements/
 csv-statements/
 raw-statement/
 cleaned-raw-statement/
-
+DATA/
 
 # Common Python files to ignore
 __pycache__/

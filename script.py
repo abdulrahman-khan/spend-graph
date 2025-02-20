@@ -116,61 +116,64 @@ def raw_text_to_csv(text_path, output_csv):
     """Process raw text file to create organized CSV using balance changes"""
     transactions = []
     current_transaction = None
-    opening_balance = None
     previous_balance = None
-    statement_year = None
+    
+    # Extract year from filename
+    year = int(re.search(r'20\d{2}', text_path.name).group())
     
     with open(text_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-        
-    for i, line in enumerate(lines):
+    
+    for line in lines:
         line = line.strip()
         if not line:
             continue
-            
-        # Find opening balance
+        
+        # Handle opening balance
         if 'OpeningBalance' in line.replace(' ', ''):
-            # Extract amount and balance from line
             parts = line.split()
-            opening_balance = float(parts[-1].replace(',', ''))
-            previous_balance = opening_balance
+            previous_balance = float(parts[-1].replace(',', ''))
             continue
-            
-        # Check if line starts with a date (e.g., "Jan9")
+        
+        # Check for new transaction (starts with date)
         date_pattern = r'^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{1,2}'
         if re.match(date_pattern, line.replace(' ', '')):
-            # If we have a previous transaction, save it
+            # Save previous transaction if exists
             if current_transaction:
                 transactions.append(current_transaction)
             
-            # Split line into components
+            # Parse new transaction
             parts = line.split()
-            date_str = parts[0]  # e.g., "Jan9"
-            balance = float(parts[-1].replace(',', ''))  # Last number is balance
-            amount = float(parts[-2].replace(',', ''))   # Second to last is amount
-            description = ' '.join(parts[1:-2])          # Everything in between
+            date_str = parts[0]
+            balance = float(parts[-1].replace(',', ''))
+            amount = float(parts[-2].replace(',', ''))
+            description = ' '.join(parts[1:-2])
             
-            # Determine if deposit or withdrawal by comparing balances
+            # Determine transaction type by balance change
             if balance > previous_balance:
-                deposit = amount
-                withdrawal = None
+                deposit, withdrawal = amount, None
             else:
-                deposit = None
-                withdrawal = amount
-                
-            # Create new transaction
+                deposit, withdrawal = None, amount
+            
+            # Adjust year for December transactions
+            transaction_year = year
+            if date_str.startswith('Dec'):
+                transaction_year = year - 1
+            
+            # Create transaction record
             current_transaction = {
                 'month': date_str[:3],
                 'date': int(date_str[3:]),
                 'description': description,
                 'withdrawal': withdrawal,
                 'deposit': deposit,
-                'balance': balance
+                'balance': balance,
+                'year': transaction_year
             }
             
             previous_balance = balance
-            
-        # If next line doesn't start with date, it's additional description
+        
+        # Add additional description lines
         elif current_transaction:
             current_transaction['description'] += ' ' + line
     
@@ -178,23 +181,15 @@ def raw_text_to_csv(text_path, output_csv):
     if current_transaction:
         transactions.append(current_transaction)
     
-    # Create DataFrame and save to CSV
-    df = pd.DataFrame(transactions)
-    
-    if not df.empty:
-        # Add year column (from existing extract_statement_date function)
-        df['year'] = statement_year
-        
-        # Reorder columns
+    # Create and save DataFrame
+    if transactions:
+        df = pd.DataFrame(transactions)
         columns = ['date', 'month', 'year', 'description', 'withdrawal', 'deposit', 'balance']
         df = df[columns]
-        
-        # Save to CSV
         df.to_csv(output_csv, index=False)
-        print(f"Successfully created CSV file: {output_csv}")
-        print(f"Total transactions processed: {len(df)}")
+        print(f"Processed {len(df)} transactions")
     else:
-        print(f"No transactions found in: {text_path}")
+        print(f"No transactions found in {text_path}")
 
 def extract_statement_date(text):
     """Extract month and year from statement text"""

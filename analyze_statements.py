@@ -2,33 +2,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-import glob
 
 def load_and_clean_data():
-    """Load all CSV files and combine them into one DataFrame"""
-    # Get all CSV files in the directory
-    csv_files = glob.glob('csv-statements/*.csv')
+    """Load EXPORT.csv from DATA folder"""
+    # Setup path to EXPORT.csv
+    data_file = Path('DATA/EXPORT.csv')
     
-    # Read and combine all CSV files
-    dfs = []
-    for file in csv_files:
-        df = pd.read_csv(file)
-        dfs.append(df)
+    if not data_file.exists():
+        raise FileNotFoundError("EXPORT.csv not found in DATA folder. Please run compiler.py first.")
     
-    # Combine all DataFrames
-    combined_df = pd.concat(dfs, ignore_index=True)
+    # Read the CSV file
+    df = pd.read_csv(data_file)
     
     # Convert date columns to datetime
-    combined_df['date'] = pd.to_datetime(combined_df[['year', 'month', 'date']].astype(str).agg('-'.join, axis=1))
+    df['date'] = pd.to_datetime(df[['year', 'month', 'date']].astype(str).agg('-'.join, axis=1))
     
     # Sort by date
-    combined_df = combined_df.sort_values('date')
+    df = df.sort_values('date')
     
     # Fill NaN values with 0 for withdrawal and deposit columns
-    combined_df['withdrawal'] = combined_df['withdrawal'].fillna(0)
-    combined_df['deposit'] = combined_df['deposit'].fillna(0)
+    df['withdrawal'] = df['withdrawal'].fillna(0)
+    df['deposit'] = df['deposit'].fillna(0)
     
-    return combined_df
+    return df
 
 def create_graphs(df):
     """Create various graphs from the data"""
@@ -36,10 +32,10 @@ def create_graphs(df):
     plt.style.use('fivethirtyeight')
     
     # Create a figure with multiple subplots
-    fig = plt.figure(figsize=(15, 20))  # Adjusted height
+    fig = plt.figure(figsize=(15, 20))
     
     # 1. Balance over time
-    plt.subplot(4, 1, 1)  # Changed to 4,1 since we removed one plot
+    plt.subplot(4, 1, 1)
     plt.plot(df['date'], df['balance'], label='Balance', color='blue')
     plt.title('Account Balance Over Time')
     plt.xlabel('Date')
@@ -73,56 +69,45 @@ def create_graphs(df):
     
     # 4. Top 5 Expenses Table
     plt.subplot(4, 1, 4)
-    current_month = df['date'].max().strftime('%B %Y')
-    current_month_data = df[
-        (df['date'].dt.month == df['date'].max().month) & 
-        (df['date'].dt.year == df['date'].max().year) &
-        (df['withdrawal'] > 0)
-    ]
     
-    top_expenses = current_month_data.nlargest(5, 'withdrawal')[['date', 'description', 'withdrawal']]
+    # Get top expenses from entire dataset
+    all_expenses = df[df['withdrawal'] > 0]
+    top_expenses = all_expenses.nlargest(5, 'withdrawal')[['date', 'description', 'withdrawal']]
     
     # Create table data
     table_data = []
     for _, row in top_expenses.iterrows():
         table_data.append([
-            row['date'].strftime('%B %d'),
-            row['description'][:30] + '...' if len(row['description']) > 30 else row['description'],
+            row['date'].strftime('%B %d, %Y'),  # Added year to date
+            row['description'],  # Remove truncation
             f"${row['withdrawal']:,.2f}"
         ])
     
-    # Create table
+    # Create table with adjusted column widths
     plt.table(
         cellText=table_data,
         colLabels=['Date', 'Description', 'Amount'],
         cellLoc='center',
         loc='center',
-        colWidths=[0.2, 0.6, 0.2],
-        bbox=[0, 0, 1, 0.8]  # [left, bottom, width, height]
+        colWidths=[0.2, 1.0, 0.2],  # Made description column wider
+        bbox=[0, 0, 1.4, 0.8]  # Increased overall width
     )
     
-    plt.title(f'Top 5 Highest Expenses - {current_month}')
-    plt.axis('off')  # Hide axes for table
+    plt.title('Top 5 Highest Expenses - All Time')
+    plt.axis('off')
     
     # Adjust layout and display
     plt.tight_layout()
     
-    # Save the figure
-    plt.savefig('financial_analysis.png', dpi=300, bbox_inches='tight')
-    print("Graphs have been saved as 'financial_analysis.png'")
-    
-    # Generate summary statistics
-    print("\nSummary Statistics:")
-    print(f"Total Deposits: ${df['deposit'].sum():,.2f}")
-    print(f"Total Withdrawals: ${df['withdrawal'].sum():,.2f}")
-    print(f"Net Change: ${(df['deposit'].sum() - df['withdrawal'].sum()):,.2f}")
-    print(f"Average Balance: ${df['balance'].mean():,.2f}")
-    print(f"Number of Transactions: {len(df)}")
+    # Save the figure to DATA folder
+    output_file = Path('DATA/financial_analysis.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"\nGraphs have been saved as '{output_file}'")
 
 def main():
     try:
         # Load and clean data
-        print("Loading and cleaning data...")
+        print("Loading and cleaning data from EXPORT.csv...")
         df = load_and_clean_data()
         
         # Create graphs
